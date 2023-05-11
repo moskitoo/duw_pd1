@@ -1,0 +1,161 @@
+/PREP7
+K,1,0,0,0
+K,2,-9,0,0
+K,3,-18,0,0
+K,4,-18,180,0
+K,5,-11,180,0
+K,6,-9,60,0
+K,7,0,60,0
+K,8,0,210,0
+K,9,-11,210,0
+A,2,3,4,5,6
+A,5,6,7,8,9
+VROTAT,1,2,,,,,1,7,90
+ET, 1, SOLID185
+ESIZE,2,0, 
+VSWEEP,1
+*SET,r0,1.523   
+*SET,B,3750 
+*SET,k,0.362e-4 
+*SET,d,0.35 
+*SET,dt,1   
+*SET,rmin,0.05  
+*SET,rmax,2 
+*SET,alfa,4249  
+*SET,beta,3 
+*SET,Es,2e5 
+*SET,Ek,15e3
+*SET,p,1000 
+*SET,E0,alfa*r0**beta   
+*SET,ir,20 
+*SET,le,5005
+*SET,v,0.3  
+*DIM,r,ARRAY,le,1,1, , ,
+!*  
+*DIM,E,ARRAY,le,1,1, , ,
+!*  
+*DIM,SED,ARRAY,le,1,1, , ,  
+!*  
+*DIM,s,ARRAY,le,1,1, , ,
+!*  
+
+*do,i,1,le,1
+*SET,E(i),E0
+*SET,r(i),r0
+*enddo 
+
+
+*do,i,1,le,1
+!stworzenie materiaÄąâ€šu   
+MP,EX,i,E(i)
+MP,PRXY,i,v  
+*enddo  
+
+*do,i,1,le,1
+EMODIF,i,MAT,i,
+*enddo
+
+MP,EX,5006,Es
+MP,PRXY,5006,v  
+
+
+CMSEL,S,_Y1 
+VATT,5006, ,   1,       0   
+CMSEL,S,_Y  
+CMDELE,_Y   
+CMDELE,_Y1  
+
+CM,_Y,VOLU  
+VSEL, , , ,       2 
+CM,_Y1,VOLU 
+CHKMSH,'VOLU'   
+CMSEL,S,_Y 
+
+VSWEEP,2
+
+FLST,2,1,5,ORDE,1   
+FITEM,2,10  
+/GO 
+!* ciśnienie 
+SFA,P51X,1,PRES,2.631  
+ 
+FLST,2,1,5,ORDE,1   
+FITEM,2,3   
+!*  
+/GO 
+DA,P51X,UY, 
+
+FLST,2,4,5,ORDE,4   
+FITEM,2,1   
+FITEM,2,-2  
+FITEM,2,8   
+FITEM,2,12  
+DA,P51X,SYMM
+
+/ANG,1,135,YS,1  
+/REP,FAST
+/ANG,1,15,XS,1  
+/REP,FAST
+
+!procedura wykonuje obliczenia w zadeklarowanej liczbie kroków ir
+/UIS,MSGPOP,3 !wyłączenie wyskakujących okienek ostrzeżeń
+*do,i,1,ir,1
+!otwarcie bloku Solution
+/SOL
+!wykonanie obliczeń
+SOLVE
+!otwarcie Postprocesora
+/POST1
+!odczytanie energii odkształcenia elementów
+ETABLE, ,SENE,
+!odczytanie objętości elementów
+ETABLE, ,VOLU,
+!obliczenie gęstości energii odkształcenia
+SEXP,SED,SENE,VOLU,1,-1,
+!zapis gęstości energii odkształcenia do tablicy
+*VGET,sed,ELEM,1,ETAB,SED, ,2
+!obliczenie wartości stymulatora dla elementów
+*do,j,1,le,1
+s(j)=sed(j)/r(j)
+*enddo
+!właściwa procedura realizująca przebudowę
+!pętla po wszystkich elementach
+/PREP7
+*do,j,1,le,1
+!obliczenie szybkości zmiany gęstości elementu
+*if,s(j),gt,(1+d)*k,then
+roprim=B*(s(j)-(1+d)*k)
+*elseif,s(j),lt,(1-d)*k
+roprim=B*(s(j)-(1-d)*k)
+*else
+roprim=0
+*endif
+!modyfikacja wartości gęstości
+r(j)=r(j)+roprim*dt
+!zabezpieczenie przed przekroczeniem wartości granicznej
+*if,r(j),lt,rmin,then
+r(j)=rmin
+*elseif,r(j),gt,rmax
+r(j)=rmax
+*endif
+!nowa wartość modułu Younga
+E(j)=alfa*r(j)**beta
+!modyfikacja materiału przyporządkowanego elementowi
+MPDE,all,j
+MP,EX,j,E(j)
+MP,PRXY,j,0.3
+BFE,j,TEMP,1,r(j), , ,
+*enddo
+
+EPLOT
+/CONT,1,9,rmin, ,rmax
+/PBF,TEMP, ,1
+
+/SHOW,JPEG,,0
+/REPLOT
+/SHOW,CLOSE
+
+*enddo
+
+
+

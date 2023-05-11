@@ -1,0 +1,215 @@
+%%% SOLVER %%%
+%Glowna funkcja obliczająca zadanie dynamiki
+function [t,q,q_prim,q_wtor,blad] = Solve2(t_span,...
+points,objects,bonds,contrains,mass,forces,dumpers,drives)
+
+alfa = 0;
+beta = 0;
+
+q0 = q0_func(objects);
+FIK = @(q) FIK_func(q,bonds,contrains,points,objects,drives);
+FIKd = @(q) FIKd_func(q,bonds,contrains,points,objects,drives);
+Gamma = @(q,q_prim) GammaK_func(q,q_prim,bonds,contrains,points,objects,drives);
+
+[M, Qg] = CalcMQg(mass);
+CalcF =  @(q) CalcForces(points,objects,forces,q);
+CalcDumpers = @(q,q_prim) CalcDumpers_func(q,q_prim,objects,dumpers);
+
+Q = @(q,q_prim) Qg + CalcF(q) + CalcDumpers(q,q_prim);
+CalcA = @(q,q_prim) CalcAcc(q,q_prim,M,FIK,FIKd,Gamma,Q,alfa,beta);
+H = @(t,Y) H_func(t,Y,CalcA);
+
+y0 = [q0; zeros(size(q0))];
+[t,y] = ode45(H,t_span,y0);
+
+y = y';
+
+q = y(1:(size(y,1)/2),:);
+q_prim = y((size(y,1)/2 + 1):size(y,1),:);
+
+q_wtor = zeros(size(q));
+blad = zeros(3,size(q,2));
+for i = 1:size(q,2)
+    q_wtor(:,i) = CalcA(q(:,i),q_prim(:,i));
+    blad(1,i) = norm(FIK(q(:,i)));
+    blad(2,i) = norm(FIKd(q(:,i))*q_prim(:,i));
+    blad(3,i) = norm(q_wtor(:,i) - CalcAcc(q(:,i),q_prim(:,i),M,FIK,FIKd,Gamma,Q,0,0));
+end
+blad = blad'
+end
+
+function dY = H_func(t,Y,CalcA)
+    q = Y(1:(size(Y,1)/2),1);
+    dq = Y((size(Y,1)/2 + 1):size(Y,1),1);
+    d2q = CalcA(q,dq);
+    dY = [dq; d2q];
+end
+
+function q_wtor = CalcAcc(q,q_prim,M,FIK,FIKd,Gamma,Q,alfa,beta)
+    FIq = FIKd(q);
+    b = [Q(q,q_prim); Gamma(q,q_prim) - 2.*alfa.*(FIq*q_prim) - (beta^2).* FIK(q)];
+    A = [M FIq'; FIq zeros(size(FIq,1),size(FIq,1))];
+    res = A\b;
+    q_wtor = res(1:size(M,1),1);
+end
+
+
+
+%Funkcja wyznaczajaca rownanie wiezow kinematyczne
+function  res = FIK_func(q,bonds,contrains,points,objects,drives)
+res = zeros(2*(size(bonds,1)+size(contrains,1) + size(drives,1)),1);
+for i = 1:size(bonds,1)
+    res((2*i-1):(2*i),1) = getXY(q,bonds(i,1))  - getXY(q,bonds(i,2)) + RMatrix(getFi(q,bonds(i,1)))*((points(bonds(i,3),:) - objects(bonds(i,1),:))') - RMatrix(getFi(q,bonds(i,2)))*((points(bonds(i,3),:) - objects(bonds(i,2),:))') ;
+end
+for i = 1:size(contrains,1)
+    res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))),1) = getXY(q,contrains(i,1))  + RMatrix(getFi(q,contrains(i,1)))*((points(contrains(i,2),:) - objects(contrains(i,1),:))') - points(contrains(i,2),:)';
+end
+for i = 1:size(drives,1)
+    res(2*(size(bonds,1)+size(contrains,1))+i,1) = getFi(q,drives(i,1))  - getFi(q,drives(i,2));
+    v = calcV(drives,i,points);
+    res(2*(size(bonds,1)+size(contrains,1))+size(drives,1) + i,1) = ((RMatrix(getFi(q,drives(i,2)))*v)')*(getXY(q,drives(i,2)) - getXY(q,drives(i,1)) - RMatrix(getFi(q,drives(i,1)))*((points(drives(i,3),:) - objects(drives(i,1),:))')) + (v')*((points(drives(i,4),:) - objects(drives(i,2),:))');
+end
+end
+
+%Funkcja obliczajaca macierz jakobiego
+function  res = FIKd_func(q,bonds,contrains,points,objects,drives)
+res = zeros(2*(size(contrains,1)+size(bonds,1)+size(drives,1)),length(q));
+OM = RMatrix(pi/2);
+for i = 1:size(bonds,1)
+    Obj1 = bonds(i,1);
+    Obj2 = bonds(i,2);
+    Point = bonds(i,3);
+    res((2*i-1):(2*i), (3*Obj1-2):(3*Obj1-1)) = eye(2);
+    res((2*i-1):(2*i), 3*Obj1) = OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
+    res((2*i-1):(2*i), (3*Obj2-2):(3*Obj2-1)) = -eye(2);
+    res((2*i-1):(2*i), 3*Obj2) = -OM*RMatrix(getFi(q,Obj2))*((points(Point,:) - objects(Obj2,:))');
+end
+for i = 1:size(contrains,1)
+    Obj1 = contrains(i,1);
+    Point = contrains(i,2);
+    res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))), (3*Obj1-2):(3*Obj1-1)) = eye(2);
+    res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))), 3*Obj1) = OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
+end
+for i = 1:size(drives,1)
+    Obj1 = drives(i,1);
+    Obj2 = drives(i,2);
+    res((2*(size(contrains,1)+size(bonds,1))+ i),(3*Obj1-2):(3*Obj1-1)) = [0,0];
+    res((2*(size(contrains,1)+size(bonds,1))+ i),3*Obj1) = 1;
+    res((2*(size(contrains,1)+size(bonds,1))+ i),(3*Obj2-2):(3*Obj2-1)) = [0,0];
+    res((2*(size(contrains,1)+size(bonds,1))+ i),3*Obj2) = -1;
+end
+for i = 1:size(drives,1)
+    Obj1 = drives(i,1);
+    Obj2 = drives(i,2);
+    Point = drives(i,3);
+    v = calcV(drives,i,points);
+    res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),(3*Obj1-2):(3*Obj1-1)) = -(RMatrix(getFi(q,Obj2))*v)';
+    res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),3*Obj1) = (-(RMatrix(getFi(q,Obj2))*v)')*OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
+    res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),(3*Obj2-2):(3*Obj2-1)) = (RMatrix(getFi(q,Obj2))*v)';
+    res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),3*Obj2) = (-(RMatrix(getFi(q,Obj2))*v)')*OM*((getXY(q,drives(i,2))- getXY(q,drives(i,1))) - RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))'));
+end
+end
+
+
+%Funkcja obliczajaca Gamma K
+function res = GammaK_func(q,q_prim,bonds,contrains,points,objects,drives)
+OM = RMatrix(pi/2);
+res = zeros(2*(size(bonds,1)+size(contrains,1) + size(drives,1)) ,1);
+%Gamma K
+for i = 1:size(bonds,1)
+    res((2*i-1):(2*i),1) = (getFi(q_prim,bonds(i,1)).^2).*RMatrix(getFi(q,bonds(i,1)))*((points(bonds(i,3),:) - objects(bonds(i,1),:))') - ...
+        (getFi(q_prim,bonds(i,2)).^2).*RMatrix(getFi(q,bonds(i,2)))*((points(bonds(i,3),:) - objects(bonds(i,2),:))');
+end
+for i = 1:size(contrains,1)
+    res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))),1) = (getFi(q_prim,contrains(i,1)).^2).*RMatrix(getFi(q,contrains(i,1)))*((points(contrains(i,2),:) - objects(contrains(i,1),:))');
+end
+for i = 1:size(drives,1)
+    res((2*(size(contrains,1)+size(bonds,1))+ i),1) = 0;
+    
+    v = calcV(drives,i,points);
+    r_i = getXY(q,drives(i,1));
+    r_j = getXY(q,drives(i,2));
+    r_i_prim = getXY(q_prim,drives(i,1));
+    r_j_prim = getXY(q_prim,drives(i,2));
+    fi_i_prim = getFi(q_prim,drives(i,1));
+    fi_j_prim = getFi(q_prim,drives(i,2));
+    s_a = (points(drives(i,3),:) - objects(drives(i,1),:))';
+    res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),1) = ((RMatrix(getFi(q,drives(i,2)))*v)')* ...
+        (2.*fi_j_prim.*OM*(r_j_prim - r_i_prim) + (fi_j_prim.^2).*(r_j - r_i) - ((fi_j_prim - fi_i_prim).^2).*RMatrix(getFi(q,drives(i,1)))*s_a);
+end
+end
+
+function Fd = CalcDumpers_func(q,q_prim,objects,dumpers)
+Fd = zeros(size(q,1),1);
+for i = 1:size(dumpers,1)
+   d = getXY(q,dumpers(i,2))- getXY(q,dumpers(i,1));
+   u = d./norm(d);
+   d= norm(d);
+   d0 = norm(objects(dumpers(i,2),:) - objects(dumpers(i,1),:));
+   Fk = dumpers(i,3).*(d-d0);
+   d_prim = u' * (getXY(q_prim,dumpers(i,2))- getXY(q_prim,dumpers(i,1)));
+   Fc = dumpers(i,4).*d_prim;
+   Fd((3*dumpers(i,1)-2):(3*dumpers(i,1)-1),1) = u.*(Fk+Fc);
+   Fd((3*dumpers(i,2)-2):(3*dumpers(i,2)-1),1) = -u.*(Fk+Fc);  
+end
+end
+
+
+%Sprawdzenie osobliwosci jakobianu
+function res = checkJacobian(jacobian_val)
+if(abs(det(jacobian_val)) < 1e-20)
+    disp('BŁĄD: Osobliwość Jacobianu');
+    res = 0;
+else
+    res = 1;
+end 
+end
+
+%%Funkcje pomocnicze do wyznaczania macierzy FIx
+
+%Funkcja licząca wersor 
+function u = wersorU(a,b)
+u = b-a;
+u = u./norm(u);
+end
+
+%Funkcja uzywana do policzenia wektora prostopadłego do kierunku ruchu w
+%parze postępowej
+function v = calcV(drives,i,points)
+v = RMatrix(pi/2)*wersorU(points(drives(i,3),:)', points(drives(i,4),:)');
+end
+
+%Funkcja wyznaczająca wektor przyblizenia poczatkowego
+function q0 = q0_func(objects)
+    q0 = [];
+    %Tworzymy nasz wektor niewiadomych na podstawie znajomości liczby obiektów
+    for i = 1:length(objects)
+        q0((3*i-2):(3*i-1)) = objects(i,:);
+        q0(3*i) = 0;
+    end
+    q0 = q0';
+end
+
+
+
+%zwykła macierz obrotu
+function res = RMatrix(fi)
+res = [cos(fi), -sin(fi); sin(fi), cos(fi)];
+end
+
+
+%%Funkcje służace do pobierana danych z wektora q
+
+%funkcja przyjmująca za argument wektor niewiadomych oraz zwracająca
+%współrzędne x oraz y wskazanego i członu
+function XY = getXY(q,i)
+x = q(3*i - 2,1);
+y = q(3*i - 1,1);
+XY = [x;y];
+end
+
+%funkcja przyjmująca za argument wektor niewiadomych oraz zwracająca
+%kąt pochylenia i-tego członu
+function fi = getFi(q,i)
+fi = q(3*i,1);
+end
