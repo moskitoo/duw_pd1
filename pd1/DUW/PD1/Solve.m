@@ -110,6 +110,7 @@ end
 
 %Funkcja obliczajaca macierz jakobiego z podziałem na FIKd i FIDd
 function  [FIKd, FIDd] = FId_func(q,bonds,contrains,points,objects,drives)
+%wymiar liczba członów * 3 x liczba członów * 3 
 res = zeros(length(q),length(q));
 %macierz charakterystyczna omega
 OM = RMatrix(pi/2);
@@ -128,6 +129,8 @@ for i = 1:size(bonds,1)
     res((2*i-1):(2*i), (3*Obj2-2):(3*Obj2-1)) = -eye(2);
     res((2*i-1):(2*i), 3*Obj2) = -OM*RMatrix(getFi(q,Obj2))*((points(Point,:) - objects(Obj2,:))');
 end
+%te elementy dla czlonow polaczonych z podstawa sa wpisywane w pola pod
+%tymi gdzie byly elementy dla zwyklych par obrotowych
 for i = 1:size(contrains,1)
     Obj1 = contrains(i,1);
     Point = contrains(i,2);
@@ -137,16 +140,19 @@ for i = 1:size(contrains,1)
 end
 
 %LICZENIE FIDd -> notatka str.52 -> wzory dla FIDd są takie same jak dla
-%FIKd tylko uzupełnione o zmienny parametr, wynikające z napędu
+%FIKd tylko uzupełnione o zmienny parametr, wynikające z napędu zależnego
+%od czasu
 
 
-%tuta jest liczone FIKd i FIDd dla napędów 
+%tuta jest liczone FIKd i FIDd dla napędów !!!!!!!!!!!!!!!!!!!!!!
+% tak jak w pacierzy FI tutaj również elementy FIK oraz FID dla par postepowych są razem 
 
 %liczenie FIKd
 for i = 1:size(drives,1)
     Obj1 = drives(i,1);
     Obj2 = drives(i,2);
     %wzory 2.43-2.46
+%     elementy FIKd dla par postepowych wpisujemy pod elementami FIKd dla par obrotowych zeby sie poprawnie polaczyly 
     res((2*(size(contrains,1)+size(bonds,1))+ i),(3*Obj1-2):(3*Obj1-1)) = [0,0];
     res((2*(size(contrains,1)+size(bonds,1))+ i),3*Obj1) = 1;
     res((2*(size(contrains,1)+size(bonds,1))+ i),(3*Obj2-2):(3*Obj2-1)) = [0,0];
@@ -160,6 +166,7 @@ for i = 1:size(drives,1)
     v = calcV(drives,i,points);
     %wzory 2.49-2.52
     %zależność kata
+    %przesuwamy sie o size(drives) bo poprzednia petla tyle zapelnila
     res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),(3*Obj1-2):(3*Obj1-1)) = -(RMatrix(getFi(q,Obj2))*v)';
     res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),3*Obj1) = (-(RMatrix(getFi(q,Obj2))*v)')*OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
     res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),(3*Obj2-2):(3*Obj2-1)) = (RMatrix(getFi(q,Obj2))*v)';
@@ -175,6 +182,12 @@ for i = 1:size(drives,1)
     %wersor równoległy??? - > NOTATKA STRONA 52  PARA POSTEPOWA
     %opisywanie długości
     v = wersorU(points(drives(i,3),:)', points(drives(i,4),:)');
+    %przesuwamy sie o 2*size(drives) bo poprzednie petla tyle zapelnily
+%     w razie watpliwosci sprawdzic przyklad 2.5 str.53
+%wzory 2.49 do 2.52
+
+% POSZUKAC JESZCZE GDZIE JEST CZLON f(t)
+
     res((2*(size(contrains,1)+size(bonds,1))+ 2*size(drives,1) + i),(3*Obj1-2):(3*Obj1-1)) = -(RMatrix(getFi(q,Obj2))*v)';
     res((2*(size(contrains,1)+size(bonds,1))+ 2*size(drives,1) + i),3*Obj1) = (-(RMatrix(getFi(q,Obj2))*v)')*OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
     res((2*(size(contrains,1)+size(bonds,1))+ 2*size(drives,1) + i),(3*Obj2-2):(3*Obj2-1)) = (RMatrix(getFi(q,Obj2))*v)';
@@ -192,6 +205,8 @@ function  res = FIt_func(~,t,bonds,contrains,~,~,drives)
     %pominięcie elementów statycznych i przejście do częsci tłoków 
     offset = 2*(size(bonds,1)+size(contrains,1) +size(drives,1));
     for i=1:size(drives,1)
+%         wyznaczenie pochodnej po czasie funkcji opisujacej wysuniecie
+%         tloka
         res(offset+i) = -df(drives,i,t); 
     end  
 end
@@ -207,6 +222,7 @@ for i = 1:size(bonds,1)
         (getFi(q_prim,bonds(i,2)).^2).*RMatrix(getFi(q,bonds(i,2)))*((points(bonds(i,3),:) - objects(bonds(i,2),:))');
 end
 for i = 1:size(contrains,1)
+    %przesuniecie o tyle ile miejsca zajela poprzednia petla
     res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))),1) = (getFi(q_prim,contrains(i,1)).^2).*RMatrix(getFi(q,contrains(i,1)))*((points(contrains(i,2),:) - objects(contrains(i,1),:))');
 end
 %Gamma D
@@ -221,12 +237,17 @@ for i = 1:size(drives,1)
     fi_i_prim = getFi(q_prim,drives(i,1));
     fi_j_prim = getFi(q_prim,drives(i,2));
     s_a = (points(drives(i,3),:) - objects(drives(i,1),:))';
-    %wzór 2.71
+    %wzór 2.59
     res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),1) = ((RMatrix(getFi(q,drives(i,2)))*v)')* ...
         (2.*fi_j_prim.*OM*(r_j_prim - r_i_prim) + (fi_j_prim.^2).*(r_j - r_i) - ((fi_j_prim - fi_i_prim).^2).*RMatrix(getFi(q,drives(i,1)))*s_a);
     u_abs = RMatrix(getFi(q,drives(i,2)))*wersorU(points(drives(i,3),:)',points(drives(i,4),:)');
     %czy tutaj jest macierz uzupełniana falej bo napedy dzielimy na pary
     %obrotowe i postepowe?????
+
+%CZEMU TUTAJ JEST WZOR NA GAMMA DLA PRZEMIESZCZENIA WZGLEDNEGO PKT
+
+
+%     wzor 2.71
     res((2*(size(contrains,1)+size(bonds,1)+ size(drives,1)) + i),1) = (u_abs')* ...
         (2.*fi_j_prim.*OM*(r_j_prim - r_i_prim) + (fi_j_prim.^2).*(r_j - r_i) - ((fi_j_prim - fi_i_prim).^2).*RMatrix(getFi(q,drives(i,1)))*s_a) + ...
         d2f(drives,i,t);
@@ -261,6 +282,7 @@ end
 
 %Sprawdzenie osobliwosci jakobianu
 function res = checkJacobian(jacobian_val)
+%wyznacznik to wartosc bliska zeru
 if(abs(det(jacobian_val)) < 1e-20)
     disp('BŁĄD: Osobliwość Jacobianu');
     res = 0;
