@@ -76,7 +76,7 @@ end
 
 %%Funkcje animacyjne do prezentacji wynikow - dodatek
 
-function [] =drawCords(q,drawXY)
+function [] = drawCords(q,drawXY)
 figure(2)
 l = 0.1;
 %do wykresu pobieramy tylko położenia punktów, a nie orientacje

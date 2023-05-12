@@ -12,5 +12,5 @@ t= linspace(0,15,501);
 
 %wyświetlenie wykresów położeń, prędkości oraz przyspieszeń wybranego
 %punktu wybranego członu lub środka ciężkości
-%[XY, V, A] = PointInfo(t,q,q_prim,q_wtor,objects,4,points,3);
+[XY, V, A] = PointInfo(t,q,q_prim,q_wtor,objects,10,points,12);
 %PointInfo(t,q,q_prim,q_wtor,objects,1)

@@ -94,6 +94,7 @@ for i = 1:size(drives,1)
     res(i,1) = getFi(q,drives(i,1))  - getFi(q,drives(i,2));
     %uzupełnienie prostopadłości
     %wzór 2.22
+    %wektor prostopadłego
     v = calcV(drives,i,points);
     res(size(drives,1) + i,1) = ((RMatrix(getFi(q,drives(i,2)))*v)')*(getXY(q,drives(i,2)) - getXY(q,drives(i,1)) - RMatrix(getFi(q,drives(i,1)))*((points(drives(i,3),:) - objects(drives(i,1),:))')) + (v')*((points(drives(i,4),:) - objects(drives(i,2),:))');
     %u_abs = wersorU(getXY(q,drives(i,1)) + RMatrix(getFi(q,drives(i,1)))* ((points(drives(i,3),:) - objects(drives(i,1),:))'),getXY(q,drives(i,2)) + RMatrix(getFi(q,drives(i,2)))* ((points(drives(i,4),:) - objects(drives(i,2),:))'));
@@ -119,6 +120,7 @@ for i = 1:size(bonds,1)
     Obj2 = bonds(i,2);
     Point = bonds(i,3);
     %wzory 2.31-2.34 str.48
+
     res((2*i-1):(2*i), (3*Obj1-2):(3*Obj1-1)) = eye(2);
     res((2*i-1):(2*i), 3*Obj1) = OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
                                                      %---->to jest wektor
