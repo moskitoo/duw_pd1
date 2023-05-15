@@ -69,53 +69,53 @@ else
     disp("ERR: Number of argument in PointInfo")
 end
 
-
-dispObj(q)
+% ANIMACJA
+% dispObj(q)
 
 end
 
 %%Funkcje animacyjne do prezentacji wynikow - dodatek
 
-function [] = drawCords(q,drawXY)
-figure(2)
-l = 0.1;
-%do wykresu pobieramy tylko położenia punktów, a nie orientacje
-points = zeros(2,length(q)/3);
-for i = 1:(length(q)/3)
-    %pobranie położeń
-    points(:,i) = [q(3*i-2) ; q(3*i-1)];
-end
-hold on
-%rysowanie położenia środka ciężkości
-axis([-0.5 2.5 -0.5 1.5]);
-plot(points(1,:),points(2,:),'o');
-%opcjonalne rysowanie osi X oraz Y lokalnych układów współrzędnych
-%umieszczonych w środkach cieżkości członów
-if(drawXY)
-for i = 1:(length(q)/3)
-     R = RMatrix(q(3*i));
-     xy = l.*eye(2)*R;
-     x = [points(1,i) points(1,i)+ xy(1,1)];
-     y = [points(2,i) points(2,i)+ xy(2,1)];
-     line(x,y)
-     x = [points(1,i) points(1,i)+ xy(1,2)];
-     y = [points(2,i) points(2,i)+ xy(2,2)];
-     line(x,y)
-end
-end
-daspect([1 1 1])
-hold off  
-end
+% function [] = drawCords(q,drawXY)
+% figure(2)
+% l = 0.1;
+% %do wykresu pobieramy tylko położenia punktów, a nie orientacje
+% points = zeros(2,length(q)/3);
+% for i = 1:(length(q)/3)
+%     %pobranie położeń
+%     points(:,i) = [q(3*i-2) ; q(3*i-1)];
+% end
+% hold on
+% %rysowanie położenia środka ciężkości
+% axis([-0.5 2.5 -0.5 1.5]);
+% plot(points(1,:),points(2,:),'o');
+% %opcjonalne rysowanie osi X oraz Y lokalnych układów współrzędnych
+% %umieszczonych w środkach cieżkości członów
+% if(drawXY)
+% for i = 1:(length(q)/3)
+%      R = RMatrix(q(3*i));
+%      xy = l.*eye(2)*R;
+%      x = [points(1,i) points(1,i)+ xy(1,1)];
+%      y = [points(2,i) points(2,i)+ xy(2,1)];
+%      line(x,y)
+%      x = [points(1,i) points(1,i)+ xy(1,2)];
+%      y = [points(2,i) points(2,i)+ xy(2,2)];
+%      line(x,y)
+% end
+% end
+% daspect([1 1 1])
+% hold off  
+% end
 
-function [] = dispObj(q)
-%iterujemy po czasie
-for i = 1:size(q,2)
-    cla
-    drawCords(q(:,i),true)
-    pause(0.01)
-    drawnow
-end
-end
+% function [] = dispObj(q)
+% %iterujemy po czasie
+% for i = 1:size(q,2)
+%     cla
+%     drawCords(q(:,i),true)
+%     pause(0.01)
+%     drawnow
+% end
+% end
 
 %%Funkcje elementarne pozwalajace na obliczenie polozenia, predkosci i
 %%przyspieszenia punktu wzgledem danego objektu
