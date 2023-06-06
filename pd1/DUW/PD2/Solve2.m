@@ -3,30 +3,54 @@
 function [t,q,q_prim,q_wtor,blad] = Solve2(t_span,...
 points,objects,bonds,contrains,mass,forces,dumpers,drives)
 
+% deklaracja jakiś zmiennych wykorzystywanych w funkcji calcacc
 alfa = 0;
 beta = 0;
 
+% wczytanie położeń środków ciężkości
 q0 = q0_func(objects);
+
+% deklaracja wykorzystywanych funkcji 
+% wyznaczanie macierzy więzów
 FIK = @(q) FIK_func(q,bonds,contrains,points,objects,drives);
+% wyznaczanie macierzy jakobiego
 FIKd = @(q) FIKd_func(q,bonds,contrains,points,objects,drives);
+% wyznaczanie macierzy gamma
 Gamma = @(q,q_prim) GammaK_func(q,q_prim,bonds,contrains,points,objects,drives);
 
+% wyznaczanie macierzy masowej układu oraz macierzy sił grawitacji działających na człony 
 [M, Qg] = CalcMQg(mass);
+
+% wyznaczanie sił zewnętrznych działających na układ
 CalcF =  @(q) CalcForces(points,objects,forces,q);
+
+% wyznaczenie sił pochodzących od elementów sprężysto-tłumiących
 CalcDumpers = @(q,q_prim) CalcDumpers_func(q,q_prim,objects,dumpers);
 
+% wspólna macierz sił
 Q = @(q,q_prim) Qg + CalcF(q) + CalcDumpers(q,q_prim);
+
+% obliczanie wektora przyspieszeń wzór 3.58
 CalcA = @(q,q_prim) CalcAcc(q,q_prim,M,FIK,FIKd,Gamma,Q,alfa,beta);
+
+% metoda bliźniacza do rozwiązania str.96
+% wzór c - [q_prim; q_wtor]
 H = @(t,Y) H_func(t,Y,CalcA);
 
+% przygotowanie wektora parametrów początkowych
 y0 = [q0; zeros(size(q0))];
+
+% ode45 wbudowane w matlaba
+% y zawiera wektory położenia i prędkości
 [t,y] = ode45(H,t_span,y0);
 
 y = y';
 
+% przypisanie wyników metody ode45 do zmiennych
 q = y(1:(size(y,1)/2),:);
 q_prim = y((size(y,1)/2 + 1):size(y,1),:);
 
+% OBLICZANIE BLEDU???
 q_wtor = zeros(size(q));
 blad = zeros(3,size(q,2));
 for i = 1:size(q,2)
@@ -35,9 +59,10 @@ for i = 1:size(q,2)
     blad(2,i) = norm(FIKd(q(:,i))*q_prim(:,i));
     blad(3,i) = norm(q_wtor(:,i) - CalcAcc(q(:,i),q_prim(:,i),M,FIK,FIKd,Gamma,Q,0,0));
 end
-blad = blad'
+blad = blad';
 end
 
+% DEFINIOWANIE FUNKCJI
 function dY = H_func(t,Y,CalcA)
     q = Y(1:(size(Y,1)/2),1);
     dq = Y((size(Y,1)/2 + 1):size(Y,1),1);
@@ -45,19 +70,25 @@ function dY = H_func(t,Y,CalcA)
     dY = [dq; d2q];
 end
 
+% DEFINIOWANIE FUNKCJI
 function q_wtor = CalcAcc(q,q_prim,M,FIK,FIKd,Gamma,Q,alfa,beta)
+% wyznaczenie macierzy jakobiego
     FIq = FIKd(q);
+%     wyznaczenie wektora prawych stron wzór 3.58
     b = [Q(q,q_prim); Gamma(q,q_prim) - 2.*alfa.*(FIq*q_prim) - (beta^2).* FIK(q)];
+%     wyznaczenie wektora lewych stron
     A = [M FIq'; FIq zeros(size(FIq,1),size(FIq,1))];
     res = A\b;
     q_wtor = res(1:size(M,1),1);
 end
 
 
+% FIK OBLICZANE INACZEJ NIZ W PD1
 
 %Funkcja wyznaczajaca rownanie wiezow kinematyczne
 function  res = FIK_func(q,bonds,contrains,points,objects,drives)
 res = zeros(2*(size(bonds,1)+size(contrains,1) + size(drives,1)),1);
+% uzupełnianie macierzy FI jak w przykładzie str.81
 for i = 1:size(bonds,1)
     res((2*i-1):(2*i),1) = getXY(q,bonds(i,1))  - getXY(q,bonds(i,2)) + RMatrix(getFi(q,bonds(i,1)))*((points(bonds(i,3),:) - objects(bonds(i,1),:))') - RMatrix(getFi(q,bonds(i,2)))*((points(bonds(i,3),:) - objects(bonds(i,2),:))') ;
 end
@@ -71,6 +102,7 @@ for i = 1:size(drives,1)
 end
 end
 
+% MACIERZ JAKOBIEGO TEZ INACZEJ
 %Funkcja obliczajaca macierz jakobiego
 function  res = FIKd_func(q,bonds,contrains,points,objects,drives)
 res = zeros(2*(size(contrains,1)+size(bonds,1)+size(drives,1)),length(q));
@@ -79,6 +111,7 @@ for i = 1:size(bonds,1)
     Obj1 = bonds(i,1);
     Obj2 = bonds(i,2);
     Point = bonds(i,3);
+%     jak w PD1
     res((2*i-1):(2*i), (3*Obj1-2):(3*Obj1-1)) = eye(2);
     res((2*i-1):(2*i), 3*Obj1) = OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
     res((2*i-1):(2*i), (3*Obj2-2):(3*Obj2-1)) = -eye(2);
@@ -110,7 +143,6 @@ for i = 1:size(drives,1)
 end
 end
 
-
 %Funkcja obliczajaca Gamma K
 function res = GammaK_func(q,q_prim,bonds,contrains,points,objects,drives)
 OM = RMatrix(pi/2);
@@ -134,6 +166,7 @@ for i = 1:size(drives,1)
     fi_i_prim = getFi(q_prim,drives(i,1));
     fi_j_prim = getFi(q_prim,drives(i,2));
     s_a = (points(drives(i,3),:) - objects(drives(i,1),:))';
+%     jak w punkcie f str.82
     res((2*(size(contrains,1)+size(bonds,1))+ size(drives,1) + i),1) = ((RMatrix(getFi(q,drives(i,2)))*v)')* ...
         (2.*fi_j_prim.*OM*(r_j_prim - r_i_prim) + (fi_j_prim.^2).*(r_j - r_i) - ((fi_j_prim - fi_i_prim).^2).*RMatrix(getFi(q,drives(i,1)))*s_a);
 end
@@ -146,15 +179,21 @@ for i = 1:size(dumpers,1)
    u = d./norm(d);
    d= norm(d);
    d0 = norm(objects(dumpers(i,2),:) - objects(dumpers(i,1),:));
+%    siła działania sprężyny wzór 3.27
    Fk = dumpers(i,3).*(d-d0);
+%    wzór 3.30
    d_prim = u' * (getXY(q_prim,dumpers(i,2))- getXY(q_prim,dumpers(i,1)));
+%    siła działana tłumika wzór 3.28
    Fc = dumpers(i,4).*d_prim;
+%    uzupełnienie macierzy sił w polach odpowiadających członowi 1 w parze
    Fd((3*dumpers(i,1)-2):(3*dumpers(i,1)-1),1) = u.*(Fk+Fc);
+%    uzupełnienie macierzy sił w polach odpowiadających członowi 1 w parze
+%    - przeciwny zwrot siły -> zachowanie III ZD
    Fd((3*dumpers(i,2)-2):(3*dumpers(i,2)-1),1) = -u.*(Fk+Fc);  
 end
 end
 
-
+% SPRAWDZENIE JAKOBIANU TAKIE SAMO JAK W PD1
 %Sprawdzenie osobliwosci jakobianu
 function res = checkJacobian(jacobian_val)
 if(abs(det(jacobian_val)) < 1e-20)

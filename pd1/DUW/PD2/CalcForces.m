@@ -1,21 +1,27 @@
 function F = CalcForces(points,objects,forces,q)
+% macierz charakterystyczna omega
 OM = RMatrix(pi/2);
+% wektor siły uogólnionej dla każdego członu ma wymiar 3x1
 F=zeros(3*length(objects),1);
 
 for i = 1:size(forces,1)
+%     wyznaczenie wektora prowadzącego od środka cieżkości do punktu
+%     przyłożenia siły (dowolny pkt na lini działania siły)
 s = (points(forces(i,2),:)-objects(forces(i,1),:))';
+% zamiana kąta na radiany
 angle=deg2rad(forces(i,4));
+% wzór 3.20
 F(3*forces(i,1)-2)=forces(i,3)*cos(angle);
 F(3*forces(i,1)-1)=forces(i,3)*sin(angle);
 F(3*forces(i,1))= (OM*RMatrix(getFi(q,forces(1,1)))*s)'*F((3*forces(i,1)-2):(3*forces(i,1)-1));
 end
 end
 
+
 %zwykła macierz obrotu
 function res = RMatrix(fi)
 res = [cos(fi), -sin(fi); sin(fi), cos(fi)];
 end
-
 
 %%Funkcje służace do pobierana danych z wektora q
 
