@@ -1,7 +1,6 @@
 function F = CalcForces(points,objects,forces,q)
 % macierz charakterystyczna omega
 OM = RMatrix(pi/2);
-% wektor siły uogólnionej dla każdego członu ma wymiar 3x1
 F=zeros(3*length(objects),1);
 
 for i = 1:size(forces,1)

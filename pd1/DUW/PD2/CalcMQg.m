@@ -15,6 +15,7 @@ v(3*i)=mass(i,2);
 
 % wymiar 2x1
 % wektor siły grawitacji wzór 3.19
+% [0, mg, 0]'
 Qg(3*i-1)=mass(i,1)*g;
 end
 % tworzenie macierzy masowej układu
