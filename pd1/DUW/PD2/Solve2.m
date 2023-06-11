@@ -35,7 +35,7 @@ CalcA = @(q,q_prim) CalcAcc(q,q_prim,M,FIK,FIKd,Gamma,Q,alfa,beta);
 
 % metoda bliźniacza do rozwiązania str.96
 % wzór c - [q_prim; q_wtor]
-H = @(t,Y) H_func(t,Y,CalcA);
+H = @(t,Y) H_func(t,Y,CalcA); 
 
 % przygotowanie wektora parametrów początkowych
 y0 = [q0; zeros(size(q0))];
@@ -75,7 +75,7 @@ end
 function q_wtor = CalcAcc(q,q_prim,M,FIK,FIKd,Gamma,Q,alfa,beta)
 % wyznaczenie macierzy jakobiego
     FIq = FIKd(q);
-%     wyznaczenie wektora prawych stron wzór 3.58
+%     wyznaczenie wektora prawych stron wzór 3.61
     b = [Q(q,q_prim); Gamma(q,q_prim) - 2.*alfa.*(FIq*q_prim) - (beta^2).* FIK(q)];
 %     wyznaczenie wektora lewych stron
     A = [M FIq'; FIq zeros(size(FIq,1),size(FIq,1))];
@@ -97,7 +97,7 @@ end
 for i = 1:size(contrains,1)
     res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))),1) = getXY(q,contrains(i,1))  + RMatrix(getFi(q,contrains(i,1)))*((points(contrains(i,2),:) - objects(contrains(i,1),:))') - points(contrains(i,2),:)';
 end
-% wzór b str.81
+% wzór 2.22 wykład część 3
 for i = 1:size(drives,1)
     res(2*(size(bonds,1)+size(contrains,1))+i,1) = getFi(q,drives(i,1))  - getFi(q,drives(i,2));
     v = calcV(drives,i,points);
@@ -126,7 +126,7 @@ for i = 1:size(contrains,1)
     res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))), (3*Obj1-2):(3*Obj1-1)) = eye(2);
     res((2*(i+size(bonds,1))-1):(2*(i+size(bonds,1))), 3*Obj1) = OM*RMatrix(getFi(q,Obj1))*((points(Point,:) - objects(Obj1,:))');
 end
-% wzór e str.82
+% wzór e str.82 wzory również obecne w skrypcie
 for i = 1:size(drives,1)
     Obj1 = drives(i,1);
     Obj2 = drives(i,2);
@@ -135,7 +135,7 @@ for i = 1:size(drives,1)
     res((2*(size(contrains,1)+size(bonds,1))+ i),(3*Obj2-2):(3*Obj2-1)) = [0,0];
     res((2*(size(contrains,1)+size(bonds,1))+ i),3*Obj2) = -1;
 end
-% wzór e str.82
+% wzór e str.82 wzory również obecne w skrypcie
 for i = 1:size(drives,1)
     Obj1 = drives(i,1);
     Obj2 = drives(i,2);

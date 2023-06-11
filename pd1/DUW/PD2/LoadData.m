@@ -1,5 +1,5 @@
 %Funcja ładujaca dane
-function [points,objects,bonds,contrains,drives] = loadData()
+function [points,objects,bonds,contrains,drives] = LoadData()
 %README
 %Program pierwotnie wczytuje wszystkie niezbędne informacje z 5 plików CSV
 %których powołanie opisane jest poniżej.
